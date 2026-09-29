@@ -35,7 +35,7 @@ from telegram.ext import (
 load_dotenv()
 
 
-BOT_TOKEN = os.getenv("8664712029:AAElLvlU-ALvuuEugCnp2mXy2YR2P0M-Sp4", "")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8664712029:AAElLvlU-ALvuuEugCnp2mXy2YR2P0M-Sp4")
 DB_PATH = Path(__file__).parent / "crm.db"
 
 

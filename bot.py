@@ -34,13 +34,11 @@ from telegram.ext import (
 
 load_dotenv()
 
-# ================== НАСТРОЙКИ ==================
-BOT_TOKEN = os.getenv("BOT_TOKEN", "8664712029:AAElLvlU-ALvuuEugCnp2mXy2YR2P0M-Sp4")
+
+BOT_TOKEN = os.getenv("8664712029:AAElLvlU-ALvuuEugCnp2mXy2YR2P0M-Sp4", "")
 DB_PATH = Path(__file__).parent / "crm.db"
 
-# Если хочешь ограничить доступ только определённым людям —
-# укажи их Telegram ID через запятую в .env (ADMIN_IDS=123456,789012)
-# Если пусто — доступ есть у всех, кто написал боту
+
 ADMIN_IDS = [
     int(x.strip())
     for x in os.getenv("ADMIN_IDS", "").split(",")

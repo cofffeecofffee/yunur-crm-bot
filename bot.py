@@ -35,7 +35,7 @@ from telegram.ext import (
 load_dotenv()
 
 # ================== НАСТРОЙКИ ==================
-BOT_TOKEN = os.getenv("BOT_TOKEN", "ВСТАВЬ_ТОКЕН_СЮДА")
+BOT_TOKEN = os.getenv("BOT_TOKEN", "8664712029:AAElLvlU-ALvuuEugCnp2mXy2YR2P0M-Sp4")
 DB_PATH = Path(__file__).parent / "crm.db"
 
 # Если хочешь ограничить доступ только определённым людям —

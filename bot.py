@@ -619,7 +619,7 @@ async def menu_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ================== ЗАПУСК ==================
 def main():
-    if not BOT_TOKEN or BOT_TOKEN == "8664712029:AAElLvlU-ALvuuEugCnp2mXy2YR2P0M-Sp4":
+    if not BOT_TOKEN or BOT_TOKEN == "ВСТАВЬ_ТОКЕН_СЮДА":
         print("❌ Укажи токен бота в файле .env (BOT_TOKEN=...) или прямо в bot.py")
         return
 

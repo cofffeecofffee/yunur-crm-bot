@@ -8,6 +8,8 @@ Yunur Consult — Telegram CRM-бот для обзвона
 """
 
 import os
+import csv
+import io
 import sqlite3
 import logging
 from datetime import datetime, timedelta
@@ -21,6 +23,7 @@ from telegram import (
     ReplyKeyboardMarkup,
     KeyboardButton,
     ReplyKeyboardRemove,
+    InputFile,
 )
 from telegram.ext import (
     Application,
@@ -34,11 +37,13 @@ from telegram.ext import (
 
 load_dotenv()
 
-
+# ================== НАСТРОЙКИ ==================
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8664712029:AAElLvlU-ALvuuEugCnp2mXy2YR2P0M-Sp4")
 DB_PATH = Path(__file__).parent / "crm.db"
 
-
+# Если хочешь ограничить доступ только определённым людям —
+# укажи их Telegram ID через запятую в .env (ADMIN_IDS=123456,789012)
+# Если пусто — доступ есть у всех, кто написал боту
 ADMIN_IDS = [
     int(x.strip())
     for x in os.getenv("ADMIN_IDS", "").split(",")
@@ -143,7 +148,7 @@ def main_keyboard():
         [
             [KeyboardButton("📞 Новый звонок"), KeyboardButton("📋 На сегодня")],
             [KeyboardButton("📊 Статистика"), KeyboardButton("📁 Все лиды")],
-            [KeyboardButton("ℹ️ Помощь")],
+            [KeyboardButton("📥 Выгрузка"), KeyboardButton("ℹ️ Помощь")],
         ],
         resize_keyboard=True,
     )
@@ -200,7 +205,7 @@ async def help_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "📞 *Новый звонок* — записать результат\n"
         "📋 *На сегодня* — кому нужно позвонить сегодня\n"
         "📊 *Статистика* — сводка по твоим звонкам\n"
-        "📁 *Все лиды* — последние 20 записей\n\n"
+        "📁 *Все лиды* — последние 20 записей\n📥 *Выгрузка* — скачать все записи в Excel (CSV)\n\n"
         "Также можно писать команды:\n"
         "/call — новый звонок\n"
         "/today — на сегодня\n"
@@ -541,6 +546,54 @@ async def check_reminders(context: ContextTypes.DEFAULT_TYPE):
     conn.close()
 
 
+
+async def export_calls(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not is_allowed(update.effective_user.id):
+        return
+
+    conn = get_conn()
+    cur = conn.cursor()
+    cur.execute(
+        """
+        SELECT id, company, contact_name, phone, status, comment, callback_at, created_at
+        FROM calls
+        WHERE manager_id = ?
+        ORDER BY created_at DESC
+        """,
+        (update.effective_user.id,),
+    )
+    rows = cur.fetchall()
+    conn.close()
+
+    if not rows:
+        await update.message.reply_text("Пока нет записей для выгрузки.", reply_markup=main_keyboard())
+        return
+
+    output = io.StringIO()
+    writer = csv.writer(output, delimiter=';')
+    writer.writerow(["ID", "Компания", "Контакт", "Телефон", "Статус", "Комментарий", "Перезвонить", "Дата создания"])
+
+    for r in rows:
+        status_text = STATUSES.get(r["status"], r["status"])
+        writer.writerow([
+            r["id"],
+            r["company"],
+            r["contact_name"] or "",
+            r["phone"] or "",
+            status_text,
+            r["comment"] or "",
+            r["callback_at"] or "",
+            r["created_at"] or "",
+        ])
+
+    output.seek(0)
+    filename = f"calls_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
+    await update.message.reply_document(
+        document=InputFile(io.BytesIO(output.getvalue().encode("utf-8-sig")), filename=filename),
+        caption=f"📥 Выгрузка: {len(rows)} записей",
+        reply_markup=main_keyboard(),
+    )
+
 # ---------- Обработка кнопок меню ----------
 async def menu_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
@@ -555,6 +608,9 @@ async def menu_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == "📁 Все лиды":
         await list_calls(update, context)
         return ConversationHandler.END
+    if text == "📥 Выгрузка":
+        await export_calls(update, context)
+        return ConversationHandler.END
     if text == "ℹ️ Помощь":
         await help_cmd(update, context)
         return ConversationHandler.END
@@ -563,7 +619,7 @@ async def menu_router(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ================== ЗАПУСК ==================
 def main():
-    if not BOT_TOKEN or BOT_TOKEN == "ВСТАВЬ_ТОКЕН_СЮДА":
+    if not BOT_TOKEN or BOT_TOKEN == "8664712029:AAElLvlU-ALvuuEugCnp2mXy2YR2P0M-Sp4":
         print("❌ Укажи токен бота в файле .env (BOT_TOKEN=...) или прямо в bot.py")
         return
 
@@ -594,11 +650,12 @@ def main():
     app.add_handler(CommandHandler("today", today))
     app.add_handler(CommandHandler("list", list_calls))
     app.add_handler(CommandHandler("stats", stats))
+    app.add_handler(CommandHandler("export", export_calls))
     app.add_handler(conv)
 
     # Остальные кнопки меню (когда не в диалоге)
     app.add_handler(MessageHandler(
-        filters.Regex("^(📋 На сегодня|📊 Статистика|📁 Все лиды|ℹ️ Помощь)$"),
+        filters.Regex("^(📋 На сегодня|📊 Статистика|📁 Все лиды|📥 Выгрузка|ℹ️ Помощь)$"),
         menu_router,
     ))
 
